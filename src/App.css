@@ -40,3 +40,49 @@
 .read-the-docs {
   color: #888;
 }
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-line {
+  animation: fadeInUp 0.5s ease-out forwards;
+  opacity: 0;
+}
+
+/* Add this to your CSS */
+@media (max-width: 768px) {
+  .chat-container {
+    padding: 1rem;
+  }
+  .header-text {
+    font-size: 1.5rem;
+  }
+  .input-field {
+    font-size: 0.875rem;
+    padding: 0.75rem;
+  }
+  .bot-icon {
+    width: 2rem;
+    height: 2rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .chat-history {
+    height: 50vh;
+  }
+  .question-text {
+    font-size: 0.75rem;
+  }
+  .answer-text {
+    font-size: 0.75rem;
+  }
+}
