@@ -1,14 +1,16 @@
 import { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Bot } from "lucide-react";
+import { Bot, Paperclip } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 const ChatInterface = () => {
   const [question, setQuestion] = useState('');
   const [chatHistory, setChatHistory] = useState<{ question: string; answer: string }[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const endOfMessagesRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll effect
@@ -31,46 +33,128 @@ const ChatInterface = () => {
     }]);
 
     try {
-      const response = await fetch(import.meta.env.VITE_API_ENDPOINT, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: currentQuestion }),
+      const ai = new GoogleGenerativeAI(import.meta.env.VITE_API_KEY);
+      const model = ai.getGenerativeModel({
+        model: "gemini-2.0-flash",
+        systemInstruction: `
+You are Shiro, a friendly AI tutor from Coddify Agency, working at Better Change School.
+
+- Always reply clearly, simply, and encourage students warmly.
+- When students ask for help, only ask these four questions without giving examples or explanations:
+
+Also, imagine next to your messages there is a small animated chatbot icon (like this one: https://www.flaticon.com/free-icon/chatbot_8943377?related_id=8943377) — gently bouncing up and down as you talk, to make the interaction feel lively and fun for kids.
+
+You are Shiro, a friendly and patient AI tutor from Coddify Agency, working at Better Change School.
+
+Your job is to naturally and warmly answer questions from students from Grade 1 to Grade 11.  
+Always explain clearly, patiently, and with kindness.  
+Your answers should feel like a real teacher talking to a student, not like a robot.  
+Encourage students and share knowledge happily.  
+If students ask in Burmese, answer in Burmese.when you speaking burma always use "ကျွန်တော်" instead of "ငါ".   
+Be supportive, cheerful, and positive at all times.
+
+        `,
       });
 
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      
-      const data = await response.json();
-      console.log('API Response:', data); // Debug log
+     let contents;
+     if (selectedFile) {
+       const reader = new FileReader();
+       reader.onload = async (e) => {
+         const fileData = e.target?.result as string;
+         const base64Data = fileData.split(',')[1]; // Extract base64 data
 
-      // Extract answer properly
-      const answer = (
-        data?.output ||
-        data?.excuse ||
-        (Array.isArray(data) && data[0]?.output) ||
-        'Sorry, I could not understand that question.'
-      );
+         contents = [
+           {
+             role: "user",
+             parts: [
+               { text: currentQuestion },
+               {
+                 inlineData: {
+                   data: base64Data,
+                   mimeType: selectedFile.type,
+                 },
+               },
+             ],
+           },
+         ];
 
-      setChatHistory(prev => 
-        prev.map((item, index) => 
-          index === prev.length - 1 
-            ? { ...item, answer } 
-            : item
-        )
-      );
+         try {
+           const result = await model.generateContent({ contents });
+           const response = result.response;
+           const answer = response.text();
 
-    } catch (error) {
-      console.error('Fetch Error:', error);
-      setChatHistory(prev => 
-        prev.map((item, index) => 
-          index === prev.length - 1 
-            ? { ...item, answer: 'Error processing your question' } 
-            : item
-        )
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
+           setChatHistory(prev =>
+             prev.map((item, index) =>
+               index === prev.length - 1
+                 ? { ...item, answer }
+                 : item
+             )
+           );
+         } catch (error) {
+           console.error('Generate Content Error:', error);
+           setChatHistory(prev =>
+             prev.map((item, index) =>
+               index === prev.length - 1
+                 ? { ...item, answer: 'Error generating content.' }
+                 : item
+             )
+           );
+         } finally {
+           setIsLoading(false);
+           setSelectedFile(null); // Clear selected file after processing
+         }
+       };
+       reader.readAsDataURL(selectedFile);
+
+     } else {
+       // Text-only content
+       contents = [
+         {
+           role: "user",
+           parts: [
+             { text: currentQuestion },
+           ],
+         },
+       ];
+       try {
+         const result = await model.generateContent({ contents });
+         const response = result.response;
+         const answer = response.text();
+
+         setChatHistory(prev =>
+           prev.map((item, index) =>
+             index === prev.length - 1
+               ? { ...item, answer }
+               : item
+           )
+         );
+       } catch (error) {
+         console.error('Generate Content Error:', error);
+         setChatHistory(prev =>
+           prev.map((item, index) =>
+             index === prev.length - 1
+               ? { ...item, answer: 'Error generating content.' }
+               : item
+           )
+         );
+       } finally {
+         setIsLoading(false);
+       }
+     }
+
+   } catch (error) {
+     console.error('Fetch Error:', error);
+     setChatHistory(prev =>
+       prev.map((item, index) =>
+         index === prev.length - 1
+           ? { ...item, answer: 'Error processing your question' }
+           : item
+       )
+     );
+   } finally {
+     setIsLoading(false);
+   }
+ };
 
   return (
     <div className="min-h-screen bg-[#E5DEFF] p-4">
@@ -110,7 +194,22 @@ const ChatInterface = () => {
 
         {/* Input Form */}
         <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-lg p-4">
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            <label htmlFor="file-upload" className="cursor-pointer">
+              <div className="flex items-center justify-center size-10 rounded-full bg-gray-200 hover:bg-gray-300">
+                <Paperclip className="size-5 text-gray-600" />
+              </div>
+              <Input
+                id="file-upload"
+                type="file"
+                onChange={(e) => setSelectedFile(e.target.files ? e.target.files[0] : null)}
+                className="hidden" // Hide the actual file input
+                disabled={isLoading}
+              />
+            </label>
+            {selectedFile && (
+              <span className="text-sm text-gray-600">{selectedFile.name}</span>
+            )}
             <Input
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
