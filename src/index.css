@@ -2,6 +2,28 @@
 @tailwind components;
 @tailwind utilities;
 
+@font-face {
+  font-family: 'Robotic';
+  src: url('/Robotic.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@keyframes fade-in-from-top {
+  0% {
+    opacity: 0;
+    transform: translateY(-20px); /* Start slightly above */
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in-from-top {
+  animation: fade-in-from-top 1s ease-out forwards; /* Adjust duration and timing as needed */
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;
