@@ -153,20 +153,20 @@ const ChatInterface = () => {
       const parsedGrade = parseInt(gradeInput, 10);
       if (!isNaN(parsedGrade) && parsedGrade >= 1 && parsedGrade <= 11) {
         setUserRole('student');
-        // Add initial message from Shiro after role is set
+        // Add initial message from Kaung Kaung after role is set
         setChatHistory([{
           role: 'model',
-          content: `ဟယ်လို! ကျွန်တော်က Shiro ပါ။ ဒီနေ့ ဘာကူညီရမလဲ။` // Initial greeting
+          content: `ဟယ်လို! ကျွန်တော်က Kaung Kaung ပါ။ ဒီနေ့ ဘာကူညီရမလဲ။` // Initial greeting
         }]);
       } else {
         toast.error("Please enter a valid grade between 1 and 11.");
       }
     } else if (role === 'teacher') {
       setUserRole('teacher');
-      // Add initial message from Shiro after role is set
+      // Add initial message from Kaung Kaung after role is set
       setChatHistory([{
         role: 'model',
-        content: `ဟယ်လို! ကျွန်တော်က Shiro ပါ။ ဒီနေ့ ဘာကူညီရမလဲ။` // Initial greeting
+        content: `ဟယ်လို! ကျွန်တော်က Kaung Kaung ပါ။ ဒီနေ့ ဘာကူညီရမလဲ။` // Initial greeting
       }]);
     }
   };
@@ -402,7 +402,7 @@ const ChatInterface = () => {
          {userRole === null ? (
            /* Role Input Form */
            <form onSubmit={(e) => handleRoleSubmit('student', e)} className="bg-white rounded-xl shadow-lg p-8 flex flex-col items-center justify-center flex-grow">
-             <p className="text-lg mb-4 text-center">Please enter your grade to start chatting with Shiro:</p>
+             <p className="text-lg mb-4 text-center">Please enter your grade to start chatting with Kaung Kaung:</p>
              <Input
                type="number"
                value={gradeInput}
