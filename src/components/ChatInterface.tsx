@@ -17,9 +17,9 @@ Core Behavior:
 - Use warm, encouraging language tailored to Grade 1–11 students' comprehension levels
 - Always respond in Burmese with "ကျွန်တော်" when using Burmese (avoid "ငါ")
 - Maintain a natural, human-like tone (avoid robotic or overly formal patterns)
-- Detect the input language.
-- If the input is English, reply in English, starting with "Hello! I'm Kaung Kaung. How can I help you today?".
-- If the input is Burmese and the question is related to education or academics, reply only in Burmese. Do not ask if the user wants the response translated back into English. For other topics, reply in Burmese without asking about English translation.
+Always detect the language of the user's input.
+If the input is English, respond in English. Start your response with "Hello! I'm Kaung Kaung. How can I help you today?".
+If the input is Burmese, respond in Burmese. Do not ask about translating to English.
 - Stay positive, patient, humorous when appropriate, and deeply supportive in all interactions
 
 Grade-specific Communication:
@@ -138,6 +138,16 @@ const renderMessageContent = (content: string) => {
   return finalParts;
 };
 
+// Helper function to read file as Data URL
+const readFileAsDataURL = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(e.target?.result as string);
+    reader.onerror = (e) => reject(e);
+    reader.readAsDataURL(file);
+  });
+};
+
 const ChatInterface = () => {
   const [userRole, setUserRole] = useState<'student' | 'teacher' | null>(null);
   const [gradeInput, setGradeInput] = useState('');
@@ -147,6 +157,7 @@ const ChatInterface = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [loadingDots, setLoadingDots] = useState(''); // New state for loading dots
   const endOfMessagesRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null); // Ref for the file input
 
   // Auto-scroll effect
   useEffect(() => {
@@ -224,7 +235,7 @@ const ChatInterface = () => {
     let accumulatedContent = ''; // Declare accumulatedContent here
 
     try {
-      const ai = new GoogleGenerativeAI(import.meta.env.VITE_API_KEY);
+      const ai = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
       const model = ai.getGenerativeModel({
         model: "gemini-2.0-flash",
         systemInstruction: SYSTEM_INSTRUCTION,
@@ -253,7 +264,7 @@ const ChatInterface = () => {
         userContext = "(User Role: Teacher)";
       }
 
-      promptContent = `${userContext} ${promptContent}`;
+      // promptContent = `${userContext} ${promptContent}`; // Removed userContext from prompt
 
       // Step 1: Prepare messages including history and system instruction
       // Exclude the initial greeting message (the first message) from the history sent to the AI
@@ -277,156 +288,106 @@ const ChatInterface = () => {
 
       // Handle multi-modal content if a file is selected
       if (selectedFile) {
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-          const fileData = e.target?.result as string;
-          const base64Data = fileData.split(',')[1]; // Extract base64 data
+        try {
+          const fileDataUrl = await readFileAsDataURL(selectedFile);
+          const base64Data = fileDataUrl.split(',')[1]; // Extract base64 data
 
           // Add the image part to the last message (which is the current user message)
-          allMessages[allMessages.length - 1].parts.push({
+          currentUserMessage.parts.push({
             inlineData: {
               data: base64Data,
               mimeType: selectedFile.type,
             },
           });
+        } catch (error) {
+          console.error('File Reading Error:', error);
+          // Handle file reading error, maybe show a toast to the user
+          setIsLoading(false);
+          setSelectedFile(null);
+          toast.error("Failed to read the selected file.");
+          return; // Stop processing if file reading fails
+        }
+      }
 
-          try {
-            const streamingResult = await model.generateContentStream({ contents: allMessages });
+      // Now, make the API call with all messages (including potential image part)
+      try {
+        const streamingResult = await model.generateContentStream({ contents: allMessages });
 
-            // Update the last message (which is the loading state) to an empty string to start streaming
+        // Update the last message (which is the loading state) to an empty string to start streaming
+        setChatHistory(prev =>
+          prev.map((item, index) =>
+            index === prev.length - 1 && item.role === 'model'
+              ? { ...item, content: '' }
+              : item
+          )
+        );
+
+        for await (const chunk of streamingResult.stream) {
+          const chunkText = chunk.text();
+          for (const char of chunkText) {
+            accumulatedContent += char;
+            // Update state with each character for a typing effect
             setChatHistory(prev =>
               prev.map((item, index) =>
                 index === prev.length - 1 && item.role === 'model'
-                  ? { ...item, content: '' }
+                  ? { ...item, content: accumulatedContent }
                   : item
               )
             );
-
-            for await (const chunk of streamingResult.stream) {
-              const chunkText = chunk.text();
-              // Process chunkText character by character for typing effect
-              for (const char of chunkText) {
-                accumulatedContent += char;
-                // Update state with each character for a typing effect
-                setChatHistory(prev =>
-                  prev.map((item, index) =>
-                    index === prev.length - 1 && item.role === 'model'
-                      ? { ...item, content: accumulatedContent }
-                      : item
-                  )
-                );
-                // Add a small delay for the typing effect (adjust delay as needed)
-                await new Promise(resolve => setTimeout(resolve, 15)); // 15ms delay per character
-              }
-            }
-          } catch (error) {
-            console.error('Generate Content Error:', error);
-            let errorMessage = 'Error generating content.';
-            if (error instanceof Error) {
-              if (error.message.includes('User location is not supported for the API use')) {
-                if (currentQuestion.toLowerCase().includes('burma')) {
-                  errorMessage = 'vpn အရင်ချိတ်ပေးပါလား ကျနော်ခင်ဗျားကိုကူညီနိုင်အောင် ';
-                } else {
-                  errorMessage = getRandomVpnMessage();
-                }
-              } else if (error.message.includes('Failed to parse stream')) {
-                errorMessage = 'Error: Failed to process the API response stream.';
-              }
-            }
-            setChatHistory(prev =>
-              prev.map((item, index) =>
-                index === prev.length - 1 && item.role === 'model'
-                  ? { ...item, content: errorMessage }
-                  : item
-              )
-            )
-          } finally {
-            setIsLoading(false);
-            // setSelectedFile(null); // Moved to main finally block
+            // Add a small delay for the typing effect (adjust delay as needed)
+            await new Promise(resolve => setTimeout(resolve, 15)); // 15ms delay per character
           }
-        };
-        reader.readAsDataURL(selectedFile);
-
-      } else {
-        // Text-only content
-        try {
-          const streamingResult = await model.generateContentStream({ contents: allMessages });
-
-          // Update the last message (which is the loading state) to an empty string to start streaming
-          setChatHistory(prev =>
-            prev.map((item, index) =>
-              index === prev.length - 1 && item.role === 'model'
-                ? { ...item, content: '' }
-                : item
-            )
-          );
-
-          for await (const chunk of streamingResult.stream) {
-            const chunkText = chunk.text();
-            for (const char of chunkText) {
-              accumulatedContent += char;
-              // Update state with each character for a typing effect
-              setChatHistory(prev =>
-                prev.map((item, index) =>
-                  index === prev.length - 1 && item.role === 'model'
-                    ? { ...item, content: accumulatedContent }
-                  : item
-                )
-              );
-              // Add a small delay for the typing effect (adjust delay as needed)
-              await new Promise(resolve => setTimeout(resolve, 15)); // 15ms delay per character
+        }
+      } catch (error) {
+        console.error('Generate Content Error:', error);
+        let errorMessage = 'Error generating content.';
+        if (error instanceof Error) {
+          if (error.message.includes('User location is not supported for the API use')) {
+            if (currentQuestion.toLowerCase().includes('burma')) {
+              errorMessage = 'vpn အရင်ချိတ်ပေးပါလား ကျနော်ခင်ဗျားကိုကူညီနိုင်အောင် ';
+            } else {
+              errorMessage = getRandomVpnMessage();
             }
+          } else if (error.message.includes('Failed to parse stream')) {
+            errorMessage = 'Error: Failed to process the API response stream.';
+          } else if (error.message.includes('API key not valid')) {
+             errorMessage = 'API key not valid. Please check your .env file.';
           }
-        } catch (error) {
-          console.error('Generate Content Error:', error);
-          let errorMessage = 'Error generating content.';
-          if (error instanceof Error) {
-            if (error.message.includes('User location is not supported for the API use')) {
-              if (currentQuestion.toLowerCase().includes('burma')) {
-                errorMessage = 'vpn အရင်ချိတ်ပေးပါလား ကျနော်ခင်ဗျားကိုကူညီနိုင်အောင် ';
-              } else {
-                errorMessage = getRandomVpnMessage();
-              }
-            } else if (error.message.includes('Failed to parse stream')) {
-              errorMessage = 'Error: Failed to process the API response stream.';
-            }
-          }
-          setChatHistory(prev =>
-            prev.map((item, index) =>
-              index === prev.length - 1 && item.role === 'model'
-                ? { ...item, content: errorMessage }
-                : item
-            )
-          );
-        } finally {
-          setIsLoading(false);
+        }
+        setChatHistory(prev =>
+          prev.map((item, index) =>
+            index === prev.length - 1 && item.role === 'model'
+              ? { ...item, content: errorMessage }
+              : item
+          )
+        );
+      } finally {
+        setIsLoading(false);
+        setSelectedFile(null); // Clear selected file state
+        if (fileInputRef.current) {
+          fileInputRef.current.value = ''; // Clear the file input element
         }
       }
-
     } catch (error) {
-      console.error('Fetch Error:', error);
-      let errorMessage = 'Error processing your question';
-      if (error instanceof Error) {
-        if (error.message.includes('User location is not supported for the API use')) {
-          if (currentQuestion.toLowerCase().includes('burma')) {
-            errorMessage = 'vpn အရင်ချိတ်ပေးပါလား ကျနော်ခင်ဗျားကိုကူညီနိုင်အောင် ';
-          } else {
-            errorMessage = getRandomVpnMessage();
+      console.error('Overall Error:', error);
+      // This catch block will handle errors not caught by the inner try/catch,
+      // such as issues with model initialization or initial message preparation.
+      let errorMessage = 'An unexpected error occurred.';
+       if (error instanceof Error && error.message.includes('API key not valid')) {
+             errorMessage = 'API key not valid. Please check your .env file.';
           }
-        } else if (error.message.includes('Failed to parse stream')) {
-          errorMessage = 'Error: Failed to process the API response stream.';
-        }
-      }
       setChatHistory(prev =>
         prev.map((item, index) =>
-          index === prev.length - 1
+          index === prev.length - 1 && item.role === 'model'
             ? { ...item, content: errorMessage }
             : item
         )
       );
-    } finally {
       setIsLoading(false);
-      setSelectedFile(null); // Clear selected file after processing
+      setSelectedFile(null); // Clear selected file state
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''; // Clear the file input element
+      }
     }
   };
 
@@ -531,6 +492,7 @@ const ChatInterface = () => {
                     onChange={(e) => setSelectedFile(e.target.files ? e.target.files[0] : null)}
                     className="hidden" // Hide the actual file input
                     disabled={isLoading}
+                    ref={fileInputRef} // Attach the ref here
                   />
                 </label>
                 {selectedFile && (
@@ -548,7 +510,14 @@ const ChatInterface = () => {
                   disabled={isLoading}
                   className="px-4 md:px-6 rounded-full bg-[#8B5CF6] hover:bg-[#7E69AB] text-sm md:text-base"
                 >
-                  "Ask!"
+                  {isLoading ? (
+                    <div className="flex items-center justify-center">
+                      {/* Simple loading spinner - replace with a proper component if available */}
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    </div>
+                  ) : (
+                    "Ask!"
+                  )}
                 </Button>
               </div>
             </form>
