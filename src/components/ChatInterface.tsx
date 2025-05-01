@@ -17,15 +17,9 @@ Core Behavior:
 - Use warm, encouraging language tailored to Grade 1–11 students' comprehension levels
 - Always respond in Burmese with "ကျွန်တော်" when using Burmese (avoid "ငါ")
 - Maintain a natural, human-like tone (avoid robotic or overly formal patterns)
-<<<<<<< HEAD
 Always detect the language of the user's input.
 If the input is English, respond in English. Start your response with "Hello! I'm Kaung Kaung. How can I help you today?".
 If the input is Burmese, respond in Burmese. Do not ask about translating to English.
-=======
-- Detect the input language.
-- If the input is English, reply in English, starting with "Hello! I'm Kaung Kaung. How can I help you today?".
-- If the input is Burmese and the question is related to education or academics, reply only in Burmese. Do not ask if the user wants the response translated back into English. For other topics, reply in Burmese without asking about English translation.
->>>>>>> origin/main
 - Stay positive, patient, humorous when appropriate, and deeply supportive in all interactions
 
 Grade-specific Communication:
@@ -204,30 +198,13 @@ const ChatInterface = () => {
       const parsedGrade = parseInt(gradeInput, 10);
       if (!isNaN(parsedGrade) && parsedGrade >= 1 && parsedGrade <= 11) {
         setUserRole('student');
-<<<<<<< HEAD
         setChatHistory([{
           role: 'model',
           content: `ဟယ်လို! ကျွန်တော် ကောင်းကောင်းပါခင်ဗျာ့` // Initial greeting
-=======
-        // Add initial message from Kaung Kaung after role is set
-        setChatHistory([{
-          role: 'model',
-          content: `ဟယ်လို! ကျွန်တော်က Kaung Kaung ပါ။ ဒီနေ့ ဘာကူညီရမလဲ။` // Initial greeting
->>>>>>> origin/main
         }]);
       } else {
         toast.error("Please enter a valid grade between 1 and 11.");
       }
-<<<<<<< HEAD
-=======
-    } else if (role === 'teacher') {
-      setUserRole('teacher');
-      // Add initial message from Kaung Kaung after role is set
-      setChatHistory([{
-        role: 'model',
-        content: `ဟယ်လို! ကျွန်တော်က Kaung Kaung ပါ။ ဒီနေ့ ဘာကူညီရမလဲ။` // Initial greeting
-      }]);
->>>>>>> origin/main
     }
   };
 
@@ -412,7 +389,6 @@ const ChatInterface = () => {
         fileInputRef.current.value = ''; // Clear the file input element
       }
     }
-<<<<<<< HEAD
   };
 
   return (
@@ -553,139 +529,3 @@ const ChatInterface = () => {
 };
 
 export default ChatInterface;
-=======
- 
-  } catch (error) {
-    console.error('Fetch Error:', error);
-    let errorMessage = 'Error processing your question';
-    if (error instanceof Error) {
-      if (error.message.includes('User location is not supported for the API use')) {
-         if (currentQuestion.toLowerCase().includes('burma')) {
-               errorMessage = 'vpn အရင်ချိတ်ပေးပါလား ကျနော်ခင်ဗျားကိုကူညီနိုင်အောင် ';
-             } else {
-               errorMessage = getRandomVpnMessage();
-             }
-       } else if (error.message.includes('Failed to parse stream')) {
-          errorMessage = 'Error: Failed to process the API response stream.';
-       }
-     }
-     setChatHistory(prev =>
-       prev.map((item, index) =>
-         index === prev.length - 1
-           ? { ...item, content: errorMessage }
-           : item
-       )
-     );
-   } finally {
-     setIsLoading(false);
-   }
- };
- 
-   return (
-     <div className="flex flex-col min-h-screen bg-[#E5DEFF] p-4">
-       <div className="flex flex-col max-w-3xl mx-auto w-full flex-grow">
-         {/* Header */}
-         <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-center text-[#221F26] mb-8 pt-8 flex items-center justify-center gap-3">
-           <Bot className="size-8 md:size-12 text-[#8B5CF6] animate-pulse" />
-           Coddify AI Tutor
-         </h1>
- 
-         {userRole === null ? (
-           /* Role Input Form */
-           <form onSubmit={(e) => handleRoleSubmit('student', e)} className="bg-white rounded-xl shadow-lg p-8 flex flex-col items-center justify-center flex-grow">
-             <p className="text-lg mb-4 text-center">Please enter your grade to start chatting with Kaung Kaung:</p>
-             <Input
-               type="number"
-               value={gradeInput}
-               onChange={(e) => setGradeInput(e.target.value)}
-               placeholder="Enter your grade (1-11)"
-               className="w-full max-w-xs mb-4 text-center"
-               min="1"
-               max="11"
-             />
-             <Button type="submit" className="px-6 rounded-full bg-[#8B5CF6] hover:bg-[#7E69AB]">
-               I am a Student
-             </Button>
-             <Button
-               type="button" // Use type="button" to prevent form submission
-               onClick={() => handleRoleSubmit('teacher')} // Handle teacher role
-               className="px-6 rounded-full bg-gray-500 hover:bg-gray-600 mt-2"
-             >
-               I am a Teacher
-             </Button>
-           </form>
-         ) : (
-           /* Chat Interface */
-           <>
-             {/* Chat Container */}
-             <div className="bg-white rounded-xl shadow-lg p-4 mb-4 flex-grow overflow-hidden">
-               <ScrollArea className="h-full w-full pr-4">
-                 {chatHistory.map((message, index) => (
-                   <div key={index} className="space-y-4 mb-6">
-                     {message.role === 'user' ? (
-                       /* User Message */
-                       <div className="flex justify-end">
-                         <div className="bg-[#8B5CF6] text-white rounded-2xl rounded-tr-none px-4 py-2 max-w-[80%]">
-                           <p className="text-sm">{message.content}</p>
-                         </div>
-                       </div>
-                     ) : (
-                       /* AI Message */
-                       <div className="flex items-start gap-2">
-                         <Bot className="size-6 text-[#8B5CF6] mt-2" />
-                         <div className="bg-gray-100 rounded-2xl rounded-tl-none px-4 py-2 max-w-[80%]">
-                           <p className="text-sm whitespace-pre-wrap">
-                             {renderMessageContent(message.content)}
-                           </p>
-                         </div>
-                       </div>
-                     )}
-                   </div>
-                 ))}
-                 <div ref={endOfMessagesRef} />
-               </ScrollArea>
-             </div>
- 
-             {/* Input Form */}
-             <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-lg p-4 flex-shrink-0">
-               <div className="flex gap-2 items-center">
-                 <label htmlFor="file-upload" className="cursor-pointer">
-                   <div className="flex items-center justify-center size-10 rounded-full bg-gray-200 hover:bg-gray-300">
-                     <Paperclip className="size-5 text-gray-600" />
-                   </div>
-                   <Input
-                     id="file-upload"
-                     type="file"
-                     onChange={(e) => setSelectedFile(e.target.files ? e.target.files[0] : null)}
-                     className="hidden" // Hide the actual file input
-                     disabled={isLoading}
-                   />
-                 </label>
-                 {selectedFile && (
-                   <span className="text-sm text-gray-600">{selectedFile.name}</span>
-                 )}
-                 <Input
-                   value={question}
-                   onChange={(e) => setQuestion(e.target.value)}
-                   placeholder="Ask me anything 🌱"
-                   className="flex-1 p-4 text-base rounded-full"
-                   disabled={isLoading}
-                 />
-                 <Button
-                   type="submit"
-                   disabled={isLoading}
-                   className="px-6 rounded-full bg-[#8B5CF6] hover:bg-[#7E69AB]"
-                 >
-                   {isLoading ? "Thinking..." : "Ask!"}
-                 </Button>
-               </div>
-             </form>
-           </>
-         )}
-       </div>
-     </div>
-   );
- };
- 
- export default ChatInterface;
->>>>>>> origin/main
